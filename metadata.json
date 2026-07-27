@@ -1,0 +1,6 @@
+{
+  "name": "Music Cleaner",
+  "description": "Find and remove duplicate audio files to reclaim storage space.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
