@@ -9,8 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withContext
 
 class ExactDuplicateDetector(
@@ -27,34 +26,37 @@ class ExactDuplicateDetector(
             return@withContext ScanReport(emptyList(), emptyList())
         }
 
-        val concurrencyLimit = Semaphore(4) // Max 4 concurrent disk reads
         var processedCount = 0
         val skippedFiles = mutableListOf<AudioFile>()
+        val hashedFiles = mutableListOf<Pair<AudioFile, String>>()
 
-        // Hash files concurrently, but bounded by semaphore
-        val hashedFiles = allCandidateFiles.map { file ->
+        val channel = Channel<AudioFile>(Channel.UNLIMITED)
+        allCandidateFiles.forEach { channel.trySend(it) }
+        channel.close()
+
+        val workerCount = 4
+        
+        val workers = List(workerCount) {
             async {
-                concurrencyLimit.withPermit {
-                    ensureActive() // Stop if coroutine is cancelled
-                    val hash = fileHasher.hashFile(file.path)
+                for (file in channel) {
+                    ensureActive()
+                    val hash = fileHasher.hashFile(file.uri)
                     
-                    val result = if (hash != null) {
-                        file to hash
+                    if (hash != null) {
+                        synchronized(hashedFiles) { hashedFiles.add(file to hash) }
                     } else {
                         synchronized(skippedFiles) { skippedFiles.add(file) }
-                        null
                     }
 
-                    // Report progress safely
                     synchronized(this@ExactDuplicateDetector) {
                         processedCount++
                         onProgress(processedCount, totalFiles)
                     }
-                    
-                    result
                 }
             }
-        }.awaitAll().filterNotNull()
+        }
+        
+        workers.awaitAll()
 
         // Group by exact SHA-256 matches
         val exactGroups = hashedFiles.groupBy { it.second }

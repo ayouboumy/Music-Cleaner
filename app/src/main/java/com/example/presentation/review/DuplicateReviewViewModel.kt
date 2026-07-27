@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.common.utils.DependencyProvider
+import com.example.domain.models.DuplicateReviewItem
 import com.example.domain.models.ExactDuplicateGroup
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -15,7 +16,7 @@ class DuplicateReviewViewModel(
     private val recommendationEngine = DependencyProvider.recommendationEngine
     
     val selectionManager = SelectionManager()
-    val audioPlayer = AudioPreviewPlayer()
+    val audioPlayer = AudioPreviewPlayer(DependencyProvider.appContext)
 
     private val _uiState = MutableStateFlow(DuplicateReviewUiState())
     
@@ -31,12 +32,39 @@ class DuplicateReviewViewModel(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DuplicateReviewUiState())
 
     init {
+        val items = recommendationEngine.buildInitialItems(exactDuplicateGroups)
+        _uiState.update { it.copy(isLoading = false, reviewItems = items) }
+        selectionManager.keepRecommended(items)
+    }
+
+    fun loadMetadataForGroup(item: DuplicateReviewItem) {
+        if (item.isMetadataLoaded || item.isMetadataLoading) return
+        
         viewModelScope.launch {
-            val items = recommendationEngine.buildReviewItems(exactDuplicateGroups)
-            _uiState.update { it.copy(isLoading = false, reviewItems = items) }
+            val items = _uiState.value.reviewItems.toMutableList()
+            val index = items.indexOfFirst { it.group == item.group }
+            if (index == -1) return@launch
             
-            // By default, select all except recommended
-            selectionManager.keepRecommended(items)
+            items[index] = item.copy(isMetadataLoading = true)
+            _uiState.update { it.copy(reviewItems = items.toList()) }
+            
+            val updatedItem = recommendationEngine.loadMetadataAndRecommend(items[index])
+            
+            val currentItems = _uiState.value.reviewItems.toMutableList()
+            val currentIndex = currentItems.indexOfFirst { it.group == item.group }
+            if (currentIndex != -1) {
+                currentItems[currentIndex] = updatedItem
+                _uiState.update { it.copy(reviewItems = currentItems.toList()) }
+                
+                // Keep recommended if the user hasn't explicitly changed selection?
+                // For safety, just let it update the UI. If we want we can update selection.
+                if (!selectionManager.selectedForDeletion.value.contains(updatedItem.recommendedToKeep)) {
+                    val newSelection = selectionManager.selectedForDeletion.value.toMutableSet()
+                    newSelection.removeAll(updatedItem.group.files.toSet())
+                    newSelection.addAll(updatedItem.group.files.filter { it != updatedItem.recommendedToKeep })
+                    selectionManager.updateSelectionRaw(newSelection)
+                }
+            }
         }
     }
     

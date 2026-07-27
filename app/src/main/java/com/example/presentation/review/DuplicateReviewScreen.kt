@@ -45,6 +45,14 @@ fun DuplicateReviewScreen(
     )
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.addObserver(viewModel.audioPlayer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(viewModel.audioPlayer)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -213,14 +221,25 @@ fun DuplicateGroupCard(
             enter = expandVertically(animationSpec = tween(300)),
             exit = shrinkVertically(animationSpec = tween(300))
         ) {
+            LaunchedEffect(expanded) {
+                if (expanded) {
+                    viewModel.loadMetadataForGroup(item)
+                }
+            }
+
             Column(
                 modifier = Modifier.padding(top = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                if (item.isMetadataLoading) {
+                    Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = AccentPrimary, modifier = Modifier.size(24.dp))
+                    }
+                }
                 item.group.files.forEach { file ->
                     val isSelected = uiState.filesSelectedForDeletion.contains(file)
                     val isRecommended = file == item.recommendedToKeep
-                    val isPlaying = uiState.currentlyPlayingPath == file.path
+                    val isPlaying = uiState.currentlyPlayingPath == file.uri
                     
                     FileItemCard(
                         file = file,
@@ -231,7 +250,7 @@ fun DuplicateGroupCard(
                         onToggleSelect = { viewModel.selectionManager.toggleSelection(file, item) },
                         onTogglePlay = {
                             if (isPlaying) viewModel.audioPlayer.pause()
-                            else viewModel.audioPlayer.play(file.path)
+                            else viewModel.audioPlayer.play(file.uri)
                         }
                     )
                 }
@@ -250,9 +269,9 @@ fun FileItemCard(
     onToggleSelect: () -> Unit,
     onTogglePlay: () -> Unit
 ) {
-    val meta = item.fileMetadata[file]!!
+    val meta = item.fileMetadata?.get(file)
     val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-    val dateStr = dateFormat.format(Date(meta.dateModifiedMs))
+    val dateStr = dateFormat.format(Date(file.dateModifiedMs))
 
     Column(
         modifier = Modifier
@@ -284,8 +303,12 @@ fun FileItemCard(
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(file.path.substringAfterLast('/'), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary, maxLines = 1)
-                Text("${meta.album} • ${meta.bitrate} kbps", fontSize = 12.sp, color = TextSecondary)
+                Text(file.displayName, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary, maxLines = 1)
+                if (meta != null) {
+                    Text("${meta.album} • ${meta.bitrate} kbps", fontSize = 12.sp, color = TextSecondary)
+                } else {
+                    Text("Loading metadata...", fontSize = 12.sp, color = TextSecondary)
+                }
             }
             Checkbox(
                 checked = isSelected,
@@ -299,7 +322,7 @@ fun FileItemCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("📁", fontSize = 12.sp)
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("${meta.relativeFolder}/", fontSize = 10.sp, color = TextSecondary)
+                    Text("${file.relativePath}/", fontSize = 10.sp, color = TextSecondary)
                 }
             }
         }
@@ -309,7 +332,9 @@ fun FileItemCard(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(dateStr, fontSize = 10.sp, color = TextSecondary)
-            Text(meta.mimeType, fontSize = 10.sp, color = TextSecondary)
+            if (meta != null) {
+                Text(meta.mimeType, fontSize = 10.sp, color = TextSecondary)
+            }
             Text(file.sizeBytes.formatSize(), fontSize = 10.sp, color = TextSecondary)
             Text(file.durationMs.formatDuration(), fontSize = 10.sp, color = TextSecondary)
         }

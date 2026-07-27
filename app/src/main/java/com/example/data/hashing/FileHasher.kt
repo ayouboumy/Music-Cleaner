@@ -1,18 +1,19 @@
 package com.example.data.hashing
 
+import android.content.Context
+import android.net.Uri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.File
 import java.security.MessageDigest
 
-class FileHasher {
-    suspend fun hashFile(path: String): String? = withContext(Dispatchers.IO) {
+class FileHasher(private val context: Context) {
+    suspend fun hashFile(uriString: String): String? = withContext(Dispatchers.IO) {
         try {
-            val file = File(path)
-            if (!file.exists() || !file.canRead()) return@withContext null
+            val uri = Uri.parse(uriString)
+            val inputStream = context.contentResolver.openInputStream(uri) ?: return@withContext null
             
             val digest = MessageDigest.getInstance("SHA-256")
-            file.inputStream().buffered().use { input ->
+            inputStream.buffered().use { input ->
                 val buffer = ByteArray(8192) // 8KB buffer
                 var bytesRead: Int
                 while (input.read(buffer).also { bytesRead = it } != -1) {

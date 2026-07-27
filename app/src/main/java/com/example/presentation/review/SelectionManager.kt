@@ -35,7 +35,7 @@ class SelectionManager {
     fun keepNewest(items: List<DuplicateReviewItem>) {
         val newSelection = mutableSetOf<AudioFile>()
         for (item in items) {
-            val newest = item.group.files.maxByOrNull { item.fileMetadata[it]?.dateModifiedMs ?: 0L }
+            val newest = item.group.files.maxByOrNull { it.dateModifiedMs }
             val toDelete = item.group.files.filter { it != newest }
             newSelection.addAll(toDelete)
         }
@@ -45,7 +45,7 @@ class SelectionManager {
     fun keepOldest(items: List<DuplicateReviewItem>) {
         val newSelection = mutableSetOf<AudioFile>()
         for (item in items) {
-            val oldest = item.group.files.minByOrNull { item.fileMetadata[it]?.dateModifiedMs ?: Long.MAX_VALUE }
+            val oldest = item.group.files.minByOrNull { it.dateModifiedMs }
             val toDelete = item.group.files.filter { it != oldest }
             newSelection.addAll(toDelete)
         }
@@ -90,5 +90,9 @@ class SelectionManager {
 
     fun clearSelection() {
         _selectedForDeletion.value = emptySet()
+    }
+    
+    fun updateSelectionRaw(newSelection: Set<AudioFile>) {
+        _selectedForDeletion.value = newSelection
     }
 }

@@ -142,6 +142,7 @@ fun AppBar() {
 
 @Composable
 fun BentoStatsSection(uiState: HomeUiState) {
+  val context = LocalContext.current
   Column(
     modifier = Modifier
       .fillMaxWidth()
@@ -223,6 +224,18 @@ fun BentoStatsSection(uiState: HomeUiState) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp, start = 8.dp)) {
         if (uiState.hasPermissionError) {
              Text(text = "PERMISSION DENIED", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AccentDelete)
+             Spacer(modifier = Modifier.width(8.dp))
+             TextButton(
+                 onClick = {
+                     val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                         data = android.net.Uri.fromParts("package", context.packageName, null)
+                     }
+                     context.startActivity(intent)
+                 },
+                 contentPadding = PaddingValues(0.dp)
+             ) {
+                 Text("Open Settings", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AccentPrimary)
+             }
         } else if (uiState.isScanning) {
              Box(
                 modifier = Modifier

@@ -20,7 +20,9 @@ class MediaStoreScanner(private val context: Context) : MediaScanner {
             MediaStore.Audio.Media.ARTIST,
             MediaStore.Audio.Media.DURATION,
             MediaStore.Audio.Media.SIZE,
-            MediaStore.Audio.Media.DATA
+            MediaStore.Audio.Media.DISPLAY_NAME,
+            MediaStore.Audio.Media.DATE_MODIFIED,
+            MediaStore.Audio.Media.RELATIVE_PATH
         )
 
         val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
@@ -37,33 +39,39 @@ class MediaStoreScanner(private val context: Context) : MediaScanner {
             val artistColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
             val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
-            val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+            val displayNameColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
+            val dateModifiedColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
+            val relativePathColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.RELATIVE_PATH)
 
             val totalCount = cursor.count
             var currentIndex = 0
 
             while (cursor.moveToNext()) {
                 try {
-                    val path = cursor.getString(dataColumn)
+                    val id = cursor.getLong(idColumn)
+                    val uri = android.content.ContentUris.withAppendedId(collection, id).toString()
+                    val displayName = cursor.getString(displayNameColumn) ?: "Unknown File"
+                    val dateModifiedMs = cursor.getLong(dateModifiedColumn) * 1000 // DATE_MODIFIED is in seconds
+                    val relativePath = cursor.getString(relativePathColumn)?.removeSuffix("/") ?: "Unknown Folder"
                     
-                    if (path != null && File(path).exists()) {
-                        val id = cursor.getLong(idColumn)
-                        val title = cursor.getString(titleColumn) ?: "Unknown Title"
-                        val artist = cursor.getString(artistColumn) ?: "Unknown Artist"
-                        val duration = cursor.getLong(durationColumn)
-                        val size = cursor.getLong(sizeColumn)
+                    val title = cursor.getString(titleColumn) ?: "Unknown Title"
+                    val artist = cursor.getString(artistColumn) ?: "Unknown Artist"
+                    val duration = cursor.getLong(durationColumn)
+                    val size = cursor.getLong(sizeColumn)
 
-                        audioFiles.add(
-                            AudioFile(
-                                id = id,
-                                title = title,
-                                artist = artist,
-                                durationMs = duration,
-                                sizeBytes = size,
-                                path = path
-                            )
+                    audioFiles.add(
+                        AudioFile(
+                            id = id,
+                            title = title,
+                            artist = artist,
+                            durationMs = duration,
+                            sizeBytes = size,
+                            uri = uri,
+                            displayName = displayName,
+                            dateModifiedMs = dateModifiedMs,
+                            relativePath = relativePath
                         )
-                    }
+                    )
                 } catch (e: Exception) {
                     // Ignore unreadable files without crashing
                 }

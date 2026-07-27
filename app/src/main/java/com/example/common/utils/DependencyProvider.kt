@@ -15,14 +15,16 @@ import com.example.domain.usecases.FindExactDuplicatesUseCase
  * Repositories and UseCases will be lazily instantiated here.
  */
 object DependencyProvider {
-    private var appContext: Context? = null
+    private var _appContext: Context? = null
+    val appContext: Context
+        get() = _appContext ?: throw IllegalStateException("DependencyProvider not initialized")
 
     fun initialize(context: Context) {
-        appContext = context.applicationContext
+        _appContext = context.applicationContext
     }
 
     val mediaScanner: MediaScanner by lazy {
-        MediaStoreScanner(appContext ?: throw IllegalStateException("DependencyProvider not initialized"))
+        MediaStoreScanner(appContext)
     }
     
     val candidateDetector: CandidateDetector by lazy {
@@ -34,7 +36,7 @@ object DependencyProvider {
     }
 
     val fileHasher: FileHasher by lazy {
-        FileHasher()
+        FileHasher(appContext)
     }
 
     val exactDuplicateDetector: ExactDuplicateDetector by lazy {
@@ -46,7 +48,7 @@ object DependencyProvider {
     }
 
     val metadataExtractor: com.example.data.metadata.MetadataExtractor by lazy {
-        com.example.data.metadata.MetadataExtractor()
+        com.example.data.metadata.MetadataExtractor(appContext)
     }
 
     val recommendationEngine: com.example.domain.usecases.review.RecommendationEngine by lazy {
