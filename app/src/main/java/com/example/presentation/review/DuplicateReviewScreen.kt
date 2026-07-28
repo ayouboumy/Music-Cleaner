@@ -60,6 +60,7 @@ fun DuplicateReviewScreen(
                 title = { Text("Review Duplicates", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
+                        @Suppress("DEPRECATION")
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 },
@@ -69,6 +70,33 @@ fun DuplicateReviewScreen(
                     navigationIconContentColor = TextPrimary
                 )
             )
+        },
+        bottomBar = {
+            if (!uiState.isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Background)
+                        .border(1.dp, BorderColor)
+                        .padding(16.dp)
+                ) {
+                    val cleanSize = uiState.filesSelectedForDeletion.sumOf { it.sizeBytes }
+                    Button(
+                        onClick = {
+                            // Deletion logic would go here
+                            onBack()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentPrimary),
+                        shape = RoundedCornerShape(28.dp),
+                        enabled = uiState.filesSelectedForDeletion.isNotEmpty()
+                    ) {
+                        Text("Clean ${uiState.selectedFilesCount} Files (${cleanSize.formatSize()})", color = Surface3, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
         },
         containerColor = Background
     ) { padding ->

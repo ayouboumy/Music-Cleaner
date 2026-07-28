@@ -71,7 +71,10 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
         Scaffold(
             containerColor = Background,
             bottomBar = {
-                BottomActionBar()
+                BottomActionBar(
+                    uiState = uiState,
+                    onScanClick = { viewModel.scanFiles() }
+                )
             }
         ) { innerPadding ->
             Column(
@@ -346,7 +349,7 @@ fun ExactDuplicateGroupsList(uiState: HomeUiState) {
 }
 
 @Composable
-fun BottomActionBar() {
+fun BottomActionBar(uiState: HomeUiState, onScanClick: () -> Unit) {
   Box(
     modifier = Modifier
       .fillMaxWidth()
@@ -355,14 +358,15 @@ fun BottomActionBar() {
       .padding(16.dp)
   ) {
     Button(
-      onClick = { },
+      onClick = onScanClick,
       modifier = Modifier
         .fillMaxWidth()
         .height(56.dp),
       colors = ButtonDefaults.buttonColors(containerColor = AccentPrimary),
-      shape = RoundedCornerShape(28.dp)
+      shape = RoundedCornerShape(28.dp),
+      enabled = !uiState.isScanning && !uiState.isHashing
     ) {
-      Text("Clean Selected (840 MB)", color = Surface3, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+      Text(if (uiState.isScanning || uiState.isHashing) "Scanning..." else "Rescan Library", color = Surface3, fontSize = 18.sp, fontWeight = FontWeight.Bold)
     }
   }
 }
